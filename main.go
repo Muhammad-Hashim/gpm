@@ -99,6 +99,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 )
 
 var packageMap = map[string]string{
@@ -153,16 +154,38 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Channel to signal when the go get command is done
+	done := make(chan bool)
+
+	// Goroutine for showing the loading animation
+	go func() {
+		for {
+			select {
+			case <-done:
+				fmt.Printf("\r%s\r", "                ") // Clear the line after loading
+				return
+			default:
+				for _, r := range `-\|/` {
+					fmt.Printf("\r%c Fetching package...", r)
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
+		}
+	}()
+
 	// Run `go get` command
 	goGetCmd := exec.Command("go", "get", urlPath)
-	fmt.Println("Package fetching  .....")
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	goGetCmd.Stdout = &out
 	goGetCmd.Stderr = &stderr
 	err := goGetCmd.Run()
+
+	// Signal the loading animation to stop
+	done <- true
+
 	if err != nil {
-		fmt.Printf("Error running go get command: %v\n", err)
+		fmt.Printf("\nError running go get command: %v\n", err)
 		fmt.Printf("Stdout: %s\n", out.String())
 		fmt.Printf("Stderr: %s\n", stderr.String())
 		os.Exit(1)
